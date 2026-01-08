@@ -50,6 +50,7 @@ public class Inventory {
         Product p = findByCode(code);
         if (p == null) throw new IllegalArgumentException("No existe producto con code=" + code);
         p.addUnits(delta);
+        // Probando
     }
 
     // ======================
