@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  test:
+    name: test (os=${{ matrix.os }}, java=${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        java: [ "17" ]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        # (Checkout v6 existe; GitHub mantiene releases recientes) :contentReference[oaicite:4]{index=4}
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+        # setup-java soporta caché Maven integrada :contentReference[oaicite:5]{index=5}
+
+      - name: Build + test + coverage
+        run: mvn -B -ntp clean verify
+
+      - name: Publish unit test summary
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Unit tests (${{ matrix.os }})
+          path: "**/target/surefire-reports/TEST-*.xml"
+          reporter: java-junit
+
+      - name: Upload reports (Surefire + JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.os }}-java${{ matrix.java }}
+          path: |
+            **/target/surefire-reports/**
+            **/target/site/jacoco/**
+          retention-days: 14
+        # Artifacts v4 recomendado en github.com (nota: GHES puede requerir v3) :contentReference[oaicite:6]{index=6}

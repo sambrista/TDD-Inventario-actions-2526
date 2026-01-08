@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Build + test + coverage
+        run: mvn -B -ntp clean verify
+
+      - name: Pick jar
+        id: jar
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR="$(ls -1 target/*.jar | grep -v 'original-' | head -n 1)"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+
+      - name: Zip JaCoCo report
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd target/site && zip -r jacoco-report.zip jacoco)
+
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum "${{ steps.jar.outputs.jar }}" > target/jar-sha256.txt
+
+      - name: GitHub Release (attach assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            ${{ steps.jar.outputs.jar }}
+            target/jar-sha256.txt
+            target/site/jacoco-report.zip
